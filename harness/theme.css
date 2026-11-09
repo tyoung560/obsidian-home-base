@@ -1,0 +1,29 @@
+/* Approximation of Obsidian's default theme variables, so the harness looks like the app. */
+body { margin: 0; height: 100vh; font-family: -apple-system, "Segoe UI", Inter, sans-serif; }
+.theme-light {
+  --background-primary: #ffffff; --background-primary-alt: #fafafa; --background-secondary: #f6f6f6;
+  --background-modifier-border: #e0e0e0; --background-modifier-border-hover: #d4d4d4; --background-modifier-hover: rgba(0,0,0,.06); --background-modifier-active-hover: rgba(138,92,245,.12);
+  --text-normal: #222222; --text-muted: #5c5c5c; --text-faint: #ababab; --text-accent: #8a5cf5; --text-on-accent: #ffffff;
+  --interactive-accent: #8a5cf5; --interactive-accent-hsl: 258, 88%, 66%; --interactive-normal: #ffffff; --interactive-hover: #f2f2f2;
+  --color-red: #e93147; --color-red-rgb: 233, 49, 71; --color-orange: #ec7500; --color-orange-rgb: 236, 117, 0; --color-green: #08b94e; --color-green-rgb: 8, 185, 78;
+  --shadow-s: 0 1px 2px rgba(0,0,0,.08), 0 3px 8px rgba(0,0,0,.06); --shadow-l: 0 2px 8px rgba(0,0,0,.1), 0 14px 40px rgba(0,0,0,.12);
+  background: var(--background-primary); color: var(--text-normal);
+}
+.theme-dark {
+  --background-primary: #1e1e1e; --background-primary-alt: #242424; --background-secondary: #262626;
+  --background-modifier-border: #363636; --background-modifier-border-hover: #474747; --background-modifier-hover: rgba(255,255,255,.07); --background-modifier-active-hover: rgba(138,92,245,.2);
+  --text-normal: #dadada; --text-muted: #b3b3b3; --text-faint: #666666; --text-accent: #a68af9; --text-on-accent: #ffffff;
+  --interactive-accent: #8a5cf5; --interactive-accent-hsl: 258, 88%, 66%; --interactive-normal: #2a2a2a; --interactive-hover: #303030;
+  --color-red: #fb464c; --color-red-rgb: 251, 70, 76; --color-orange: #e9973f; --color-orange-rgb: 233, 151, 63; --color-green: #44cf6e; --color-green-rgb: 68, 207, 110;
+  --shadow-s: 0 1px 2px rgba(0,0,0,.4); --shadow-l: 0 2px 8px rgba(0,0,0,.4), 0 14px 40px rgba(0,0,0,.5);
+  background: var(--background-primary); color: var(--text-normal); color-scheme: dark;
+}
+body { --font-ui-smaller: 12px; --font-ui-small: 13px; --font-ui-medium: 15px; --font-ui-larger: 18px; --font-monospace: ui-monospace, Menlo, monospace; --radius-m: 8px; --radius-l: 12px; }
+#mount, .view-content-wrap, .view-content { height: 100%; }
+button { font: inherit; color: var(--text-normal); background: var(--interactive-normal); border: 0; border-radius: var(--radius-m); padding: 4px 12px; height: 30px; box-shadow: 0 0 0 1px var(--background-modifier-border); cursor: pointer; }
+button:hover { background: var(--interactive-hover); }
+button.mod-cta { background: var(--interactive-accent); color: var(--text-on-accent); box-shadow: none; }
+button:disabled { opacity: .5; cursor: default; }
+input[type=text], input[type=date] { font: inherit; color: var(--text-normal); background: var(--background-primary); border: 1px solid var(--background-modifier-border); border-radius: var(--radius-m); padding: 4px 8px; height: 30px; }
+input[type=checkbox] { accent-color: var(--interactive-accent); width: 16px; height: 16px; }
+.harness-notice { position: fixed; top: 12px; right: 12px; background: var(--background-secondary); border: 1px solid var(--background-modifier-border); border-radius: 8px; padding: 8px 12px; font-size: 13px; z-index: 99; box-shadow: var(--shadow-l); }
