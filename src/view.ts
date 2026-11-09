@@ -60,19 +60,24 @@ export class HomeBaseView extends ItemView {
 
   async onOpen(): Promise<void> {
     this.contentEl.addClass("hb-root");
-    this.registerEvent(this.index.on("updated", () => this.render()));
+    this.registerEvent(this.index.on("updated", () => this.draw()));
     const ro = new ResizeObserver(() => {
       const n = Platform.isPhone || this.contentEl.clientWidth < 720;
       if (n !== this.narrow) {
         this.narrow = n;
-        this.render();
+        this.draw();
       }
     });
     ro.observe(this.contentEl);
     this.register(() => ro.disconnect());
     this.narrow = Platform.isPhone || this.contentEl.clientWidth < 720;
-    if (!this.index.ready) await this.index.rebuild();
-    this.render();
+    try {
+      if (!this.index.ready) await this.index.rebuild();
+    } catch (e) {
+      this.showError(e);
+      return;
+    }
+    this.draw();
   }
 
   /* ---------- public entry points for commands ---------- */
@@ -99,7 +104,7 @@ export class HomeBaseView extends ItemView {
   private items(): WorkItem[] {
     return this.index.items.filter((i) => this.lens === "all" || i.app === this.lens);
   }
-  private open(i: WorkItem): boolean { return i.status !== "done" && i.status !== "dropped"; }
+  private isOpenItem(i: WorkItem): boolean { return i.status !== "done" && i.status !== "dropped"; }
   private appDef(name: string): AppDef {
     return this.apps.find((a) => a.name === name) ?? { name, short: name, aliases: [], color: "var(--text-faint)" };
   }
@@ -122,7 +127,26 @@ export class HomeBaseView extends ItemView {
 
   /* ---------- render ---------- */
 
-  render(): void {
+  /** Named draw, not render or open: Obsidian's View uses those names internally. */
+  draw(): void {
+    try {
+      this.drawUnsafe();
+    } catch (e) {
+      this.showError(e);
+    }
+  }
+
+  private showError(e: unknown): void {
+    console.error("Home Base", e);
+    const root = this.contentEl;
+    root.empty();
+    const box = el(root, "div", { cls: "hb-error" });
+    el(box, "h3", { text: "Home Base couldn't draw this view" });
+    el(box, "p", { text: e instanceof Error ? e.message : String(e) });
+    el(box, "p", { cls: "hb-faint", text: "Details are in the developer console. Reopening the view tries again." });
+  }
+
+  private drawUnsafe(): void {
     const root = this.contentEl;
     const prevScroll = root.querySelector(".hb-screen")?.scrollTop ?? 0;
     root.empty();
@@ -151,7 +175,7 @@ export class HomeBaseView extends ItemView {
   private go(s: Screen): void {
     this.screen = s;
     this.selected = null;
-    this.render();
+    this.draw();
     this.contentEl.querySelector(".hb-screen")?.scrollTo(0, 0);
   }
 
@@ -160,9 +184,9 @@ export class HomeBaseView extends ItemView {
     el(brand, "div", { cls: "hb-brand-name", text: "Home Base" });
     el(brand, "div", { cls: "hb-brand-sub", text: this.today.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" }) });
     const counts: Partial<Record<Screen, number>> = {
-      board: this.items().filter((i) => i.type === "task" && this.open(i)).length,
-      ops: this.items().filter((i) => i.type === "ops" && this.open(i)).length,
-      upcoming: this.items().filter((i) => i.due && this.open(i)).length,
+      board: this.items().filter((i) => i.type === "task" && this.isOpenItem(i)).length,
+      ops: this.items().filter((i) => i.type === "ops" && this.isOpenItem(i)).length,
+      upcoming: this.items().filter((i) => i.due && this.isOpenItem(i)).length,
       quick: this.index.quickLists.filter((q) => this.lens === "all" || q.app === this.lens).reduce((n, q) => n + q.items.filter((x) => !x.done).length, 0),
     };
     const views = el(rail, "div", { cls: "hb-rail-group" });
@@ -176,8 +200,8 @@ export class HomeBaseView extends ItemView {
     const lenses = el(rail, "div", { cls: "hb-rail-group" });
     el(lenses, "div", { cls: "hb-rail-label", text: "Apps" });
     for (const [id, label, color] of [["all", "All apps", "var(--text-normal)"], ...this.apps.map((a) => [a.name, a.short === a.name ? a.name : a.short, a.color])] as [string, string, string][]) {
-      const n = this.index.items.filter((i) => this.open(i) && (id === "all" || i.app === id)).length;
-      const b = el(lenses, "button", { cls: ["hb-nav", this.lens === id ? "is-active" : ""], onClick: () => { this.lens = id; this.render(); } });
+      const n = this.index.items.filter((i) => this.isOpenItem(i) && (id === "all" || i.app === id)).length;
+      const b = el(lenses, "button", { cls: ["hb-nav", this.lens === id ? "is-active" : ""], onClick: () => { this.lens = id; this.draw(); } });
       el(b, "span", { cls: "hb-dot", style: { background: color } });
       el(b, "span", { text: id === "General" ? "Personal" : id === "all" ? label : id });
       el(b, "span", { cls: "hb-count", text: String(n) });
@@ -226,8 +250,8 @@ export class HomeBaseView extends ItemView {
     if (!this.narrow) return;
     const bar = el(c, "div", { cls: "hb-lenses" });
     for (const [id, label, color] of [["all", "All", ""], ...this.apps.map((a) => [a.name, a.short, a.color])] as [string, string, string][]) {
-      const n = this.index.items.filter((i) => this.open(i) && (id === "all" || i.app === id)).length;
-      const b = el(bar, "button", { cls: ["hb-lens", this.lens === id ? "is-active" : ""], onClick: () => { this.lens = id; this.render(); } });
+      const n = this.index.items.filter((i) => this.isOpenItem(i) && (id === "all" || i.app === id)).length;
+      const b = el(bar, "button", { cls: ["hb-lens", this.lens === id ? "is-active" : ""], onClick: () => { this.lens = id; this.draw(); } });
       if (color) el(b, "span", { cls: "hb-dot", style: { background: color } });
       el(b, "span", { text: label });
       el(b, "span", { cls: "hb-n", text: String(n) });
@@ -342,7 +366,7 @@ export class HomeBaseView extends ItemView {
       new Notice(`Added ${file.basename} to the inbox`);
       this.draft = null;
       if (this.narrow) this.renderOverlay();
-      else this.render();
+      else this.draw();
     } catch (e) {
       new Notice(`Home Base: ${e instanceof Error ? e.message : "couldn't create the note"}`);
     }
@@ -428,9 +452,9 @@ export class HomeBaseView extends ItemView {
   private renderHome(c: HTMLElement): void {
     const items = this.items();
     const inbox = items.filter((i) => i.status === "inbox");
-    const due = items.filter((i) => this.open(i) && i.due && (daysUntil(i.due, this.today) ?? 99) <= 7).sort((a, b) => a.due.localeCompare(b.due));
+    const due = items.filter((i) => this.isOpenItem(i) && i.due && (daysUntil(i.due, this.today) ?? 99) <= 7).sort((a, b) => a.due.localeCompare(b.due));
     const overdue = due.filter((i) => (daysUntil(i.due, this.today) ?? 0) < 0);
-    const ops = items.filter((i) => i.type === "ops" && this.open(i) && !due.includes(i)).sort((a, b) => (a.due || "9").localeCompare(b.due || "9"));
+    const ops = items.filter((i) => i.type === "ops" && this.isOpenItem(i) && !due.includes(i)).sort((a, b) => (a.due || "9").localeCompare(b.due || "9"));
     const active = items.filter((i) => i.status === "in-progress" || i.status === "blocked");
     const lensName = this.lens === "all" ? "" : ` · ${this.appDef(this.lens).short}`;
 
@@ -491,8 +515,8 @@ export class HomeBaseView extends ItemView {
     if (!this.narrow) {
       const aG = this.section(right, "By app");
       for (const a of this.apps) {
-        const ts = this.index.items.filter((i) => i.app === a.name && this.open(i));
-        const r = el(aG, "div", { cls: "hb-app-row", attr: { role: "button", tabindex: "0" }, onClick: () => { this.lens = a.name; this.render(); } });
+        const ts = this.index.items.filter((i) => i.app === a.name && this.isOpenItem(i));
+        const r = el(aG, "div", { cls: "hb-app-row", attr: { role: "button", tabindex: "0" }, onClick: () => { this.lens = a.name; this.draw(); } });
         const l = el(r, "div", { cls: "hb-row-main" });
         const nm = el(l, "div", { cls: "hb-app-name" });
         el(nm, "span", { cls: "hb-dot", style: { background: a.color } });
@@ -516,7 +540,7 @@ export class HomeBaseView extends ItemView {
     if (!this.narrow) {
       const seg = el(h, "div", { cls: "hb-seg" });
       for (const [id, label] of [["all", "All"], ...this.apps.map((a) => [a.name, a.short])] as [string, string][]) {
-        el(seg, "button", { cls: this.lens === id ? "is-active" : "", text: label, onClick: () => { this.lens = id; this.render(); } });
+        el(seg, "button", { cls: this.lens === id ? "is-active" : "", text: label, onClick: () => { this.lens = id; this.draw(); } });
       }
       const wrap = el(c, "div", { cls: "hb-board-wrap" });
       const board = el(wrap, "div", { cls: "hb-board" });
@@ -585,8 +609,8 @@ export class HomeBaseView extends ItemView {
   /* ---------- upcoming ---------- */
 
   private renderUpcoming(c: HTMLElement): void {
-    const dated = this.items().filter((i) => i.due && this.open(i)).sort((a, b) => a.due.localeCompare(b.due));
-    const undated = this.items().filter((i) => !i.due && this.open(i)).length;
+    const dated = this.items().filter((i) => i.due && this.isOpenItem(i)).sort((a, b) => a.due.localeCompare(b.due));
+    const undated = this.items().filter((i) => !i.due && this.isOpenItem(i)).length;
     this.head(c, "Tasks and ops jobs with a due date", "Upcoming", true);
     this.lensBar(c);
     if (!this.narrow) {
@@ -624,7 +648,7 @@ export class HomeBaseView extends ItemView {
   /* ---------- ops ---------- */
 
   private renderOps(c: HTMLElement): void {
-    const ops = this.items().filter((i) => i.type === "ops" && this.open(i)).sort((a, b) => (a.due || "9").localeCompare(b.due || "9"));
+    const ops = this.items().filter((i) => i.type === "ops" && this.isOpenItem(i)).sort((a, b) => (a.due || "9").localeCompare(b.due || "9"));
     this.head(c, this.narrow ? "Swipe left for Done or Snooze" : "Jobs with no code change", "Ops", true);
     this.lensBar(c);
     const g = el(c, "div", { cls: "hb-group" });
@@ -689,7 +713,7 @@ export class HomeBaseView extends ItemView {
     box.checked = n.done;
     box.addEventListener("change", () => { if (file) void this.act(this.index.toggleLine(file, n.line, box.checked)); });
     el(l, "span", { cls: "hb-grow", text: n.text });
-    if (!n.done) el(l, "button", { cls: "hb-link", text: "Make task", onClick: (e) => { e.preventDefault(); this.draft = { text: n.text, app: null, type: null, due: null }; if (this.narrow) this.renderOverlay(); else { this.render(); this.contentEl.querySelector<HTMLInputElement>(".hb-capture input")?.focus(); } } });
+    if (!n.done) el(l, "button", { cls: "hb-link", text: "Make task", onClick: (e) => { e.preventDefault(); this.draft = { text: n.text, app: null, type: null, due: null }; if (this.narrow) this.renderOverlay(); else { this.draw(); this.contentEl.querySelector<HTMLInputElement>(".hb-capture input")?.focus(); } } });
   }
 
   private logInput(c: HTMLElement, section: "did" | "notes" | "next", placeholder: string): void {
@@ -768,9 +792,9 @@ export class HomeBaseView extends ItemView {
     this.head(c, this.app.vault.getName(), "More");
     const g = el(c, "div", { cls: "hb-group" });
     const items: [Screen, string, string, string, number][] = [
-      ["ops", "Ops", "Jobs with no code change", "repeat", this.items().filter((i) => i.type === "ops" && this.open(i)).length],
+      ["ops", "Ops", "Jobs with no code change", "repeat", this.items().filter((i) => i.type === "ops" && this.isOpenItem(i)).length],
       ["meetings", "Meetings", "Decisions and open questions", "users", this.index.meetings.length],
-      ["upcoming", "Upcoming", "Everything with a due date", "calendar", this.items().filter((i) => i.due && this.open(i)).length],
+      ["upcoming", "Upcoming", "Everything with a due date", "calendar", this.items().filter((i) => i.due && this.isOpenItem(i)).length],
       ["quick", "Quick fixes", "One-liners per app", "list-checks", this.index.quickLists.reduce((n, q) => n + q.items.filter((x) => !x.done).length, 0)],
     ];
     for (const [id, label, sub, ic, n] of items) {

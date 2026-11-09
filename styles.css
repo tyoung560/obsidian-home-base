@@ -28,6 +28,8 @@
 .hb-ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hb-pad { padding: 0 14px 12px; }
 .hb-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; display: inline-block; background: var(--hb-app, var(--text-faint)); }
+.hb-error { padding: 24px; max-width: 560px; }
+.hb-error h3 { margin-top: 0; }
 .hb-empty { padding: 14px; color: var(--text-faint); font-size: var(--font-ui-small); }
 .hb-note { font-size: var(--font-ui-small); color: var(--text-muted); border: 1px dashed var(--background-modifier-border); border-radius: var(--hb-radius); padding: 8px 12px; }
 

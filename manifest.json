@@ -1,7 +1,7 @@
 {
   "id": "home-base",
   "name": "Home Base",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "minAppVersion": "1.5.0",
   "description": "A task and project workspace over your notes: Home, board, quick capture, inbox review, ops, meetings and daily logs.",
   "author": "tyoung560",

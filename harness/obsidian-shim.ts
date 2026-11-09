@@ -128,7 +128,7 @@ export class Vault extends Events {
   }
 }
 
-export class WorkspaceLeaf { view: any = null; constructor(public app: any) {} async setViewState(s: { type: string }) { const factory = this.app.workspace.factories[s.type]; this.view = factory(this); this.app.workspace.leaves.push(this); this.app.workspace.mount(this.view); await this.view.onOpen(); } async openFile(f: TFile) { this.app.workspace.opened.push(f.path); new Notice(`Opened ${f.path}`); } }
+export class WorkspaceLeaf { view: any = null; constructor(public app: any) {} async setViewState(s: { type: string }) { const factory = this.app.workspace.factories[s.type]; this.view = factory(this); this.app.workspace.leaves.push(this); this.app.workspace.mount(this.view); await this.view.open(this.view.containerEl); } async openFile(f: TFile) { this.app.workspace.opened.push(f.path); new Notice(`Opened ${f.path}`); } }
 
 export function makeApp(seed: Record<string, string>) {
   const vault = new Vault(seed);
@@ -155,6 +155,8 @@ export class ItemView {
   constructor(public leaf: WorkspaceLeaf) { this.app = leaf.app; this.containerEl = document.createElement("div"); this.containerEl.className = "view-content-wrap"; this.contentEl = this.containerEl.createDiv({ cls: "view-content" }); }
   registerEvent(_r: unknown) {}
   register(_f: () => void) {}
+  /** Obsidian calls open() when a leaf shows the view, and open() calls onOpen(). A subclass method named open breaks this. */
+  async open(_el: HTMLElement) { await (this as any).onOpen(); }
 }
 
 export class Plugin {
