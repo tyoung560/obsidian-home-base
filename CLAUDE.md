@@ -39,4 +39,6 @@ npm run build
 node harness/build.mjs /home/user/obsidian   # then screenshot harness/out/index.html (?phone, ?dark)
 ```
 
-Commit to the session's branch and open a PR to `main`. Tag a version to release.
+Commit to the session's branch and open a PR to `main`. A merge to `main` publishes a release
+when the version in `manifest.json`, `package.json` and `versions.json` is new, so bump all three
+in any PR that should reach BRAT users.

@@ -1,29 +1,64 @@
-# Builds the plugin and attaches main.js, manifest.json and styles.css to a GitHub release,
-# which is what BRAT installs from. Push a tag that matches manifest.json's version, e.g. 0.1.0.
+# Builds the plugin on every push to main and publishes a GitHub release for BRAT whenever
+# manifest.json has a version that hasn't been released yet. The release is tagged with the bare
+# version (e.g. 0.1.0) and carries main.js, manifest.json and styles.css, which is what BRAT installs.
+# To ship a change: bump the version in manifest.json, package.json and versions.json, then merge.
+# Run it by hand from the Actions tab to publish the current version if it's missing.
 name: Release
 
 on:
   push:
-    tags: ["*"]
+    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+
       - run: npm ci
       - run: npm test
       - run: npm run build
-      - name: Check the tag matches manifest.json
-        run: test "$(node -p "require('./manifest.json').version")" = "${GITHUB_REF_NAME}"
-      - name: Create the release
+
+      - name: Read the version
+        id: version
+        run: |
+          v=$(node -p "require('./manifest.json').version")
+          p=$(node -p "require('./package.json').version")
+          if [ "$v" != "$p" ]; then echo "::error::manifest.json is $v but package.json is $p"; exit 1; fi
+          node -e "const v=require('./versions.json'); if(!v['$v']){console.error('::error::versions.json has no entry for $v'); process.exit(1)}"
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
+      - name: Check for an existing release
+        id: existing
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "${GITHUB_REF_NAME}" main.js manifest.json styles.css --title "${GITHUB_REF_NAME}" --generate-notes
+        run: |
+          if gh release view "${{ steps.version.outputs.version }}" > /dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Release ${{ steps.version.outputs.version }} already exists. Bump the version to publish a new one."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish the release
+        if: steps.existing.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.version.outputs.version }}" main.js manifest.json styles.css \
+            --target "${{ github.sha }}" \
+            --title "${{ steps.version.outputs.version }}" \
+            --generate-notes

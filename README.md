@@ -97,6 +97,11 @@ theme. Writes go to an in-memory copy; the vault folder is never changed. The pa
 
 ## Release
 
-Bump `version` in `manifest.json`, `package.json` and `versions.json`, then push a tag with the
-same version (for example `0.1.1`). The release workflow builds the plugin and attaches
-`main.js`, `manifest.json` and `styles.css` to a GitHub release for BRAT.
+Every push to `main` builds and tests the plugin. When `manifest.json` has a version with no
+release yet, the release workflow publishes one, tagged with the bare version (for example
+`0.1.1`), with `main.js`, `manifest.json` and `styles.css` attached. BRAT installs and updates
+from those releases.
+
+To ship a change, bump `version` in `manifest.json`, `package.json` and `versions.json` (the
+workflow fails if they disagree), then merge to `main`. Pushing to `main` without a version bump
+builds and tests but publishes nothing. You can also run the workflow by hand from the Actions tab.
