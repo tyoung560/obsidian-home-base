@@ -28,6 +28,10 @@ harness/          browser harness with a stand-in for the Obsidian API (dev only
 - Use Obsidian's CSS variables so the plugin follows the user's theme, light and dark. Class names
   start with `hb-`. Obsidian styles every `button`, so override inside `.hb-root`.
 - Build DOM with `createEl` and `setText`; never `innerHTML` with note content.
+- Don't give a View or Plugin subclass a method or field named like an Obsidian internal, even
+  one missing from `obsidian.d.ts`. `open`, `close`, `render` and `load` are taken: a method named
+  `open` on the view replaced Obsidian's own, `onOpen` never ran, and 0.1.0 showed a blank page.
+  The harness calls `view.open()` the way Obsidian does, so it catches this one.
 - Mobile matters as much as desktop. The view switches to the narrow layout under 720px or on a
   phone (`.hb-narrow`). Check both in the harness before pushing.
 

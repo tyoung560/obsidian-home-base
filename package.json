@@ -1,6 +1,6 @@
 {
   "name": "obsidian-home-base",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A task and project workspace for an Obsidian vault: Home, board, capture, review, ops, meetings and daily logs, all stored as notes.",
   "main": "main.js",
   "type": "module",
