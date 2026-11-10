@@ -17,6 +17,7 @@ src/settings.ts   settings and the settings tab
 src/main.ts       plugin entry: view, commands, events
 styles.css        all styles; only Obsidian theme variables, no fixed colors except app dots
 harness/          browser harness with a stand-in for the Obsidian API (dev only)
+docs/design.md    the plan for the configurable workspace; read it before changing the schema
 ```
 
 ## Rules
