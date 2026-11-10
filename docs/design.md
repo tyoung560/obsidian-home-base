@@ -1,6 +1,6 @@
 # Home Base design: a configurable workspace
 
-Status: reviewed 2026-11-10; decisions are listed at the end. Nothing here is built yet.
+Status: approved 2026-11-10, no open questions. Decisions are listed at the end. Nothing here is built yet.
 
 Home Base 0.1 works, but it only works for one vault. The note types, the statuses, the `app`
 property, the `## Work` and `## Steps` checklists and the daily log format are all written into
@@ -517,6 +517,9 @@ From using 0.1 on desktop:
 - Keyboard: `c` capture, `j`/`k` move between rows, `Enter` open, `e` status, `d` due, `x` done.
 - Undo on every change, in the notice that confirms it.
 - Rename an item and add or edit checklist lines from the sheet.
+- Promote a quick fix to a task from its row: create a task note in the same space with the line's
+  text as the title and a `source` link back to the quick-list note, then replace the checkbox
+  line with a link to the new task, so the line isn't lost and isn't done twice.
 - Open notes in a split beside Home Base on desktop instead of a new tab.
 - Hover a row with the modifier key for Obsidian's page preview.
 
@@ -567,8 +570,4 @@ Settled in review on 2026-11-10:
 7. **The vault's CLAUDE.md:** says the vault also holds recipes, links, personal notes and app
    wiki pages, which Claude keeps as notes and doesn't sort into tasks. Done in
    `tyoung560/obsidian` alongside this review.
-
-## Open questions
-
-1. **Promoting a quick fix.** Turning one checkbox into a task from its row (creating the note and
-   ticking or linking the line) would bridge the two. Worth adding in the polish phase?
+8. **Promoting a quick fix:** yes, in the polish phase (see "Polish and workflow").
