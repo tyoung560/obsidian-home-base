@@ -1,6 +1,6 @@
 # Home Base design: a configurable workspace
 
-Status: draft for review. Nothing here is built yet.
+Status: reviewed 2026-11-10; decisions are listed at the end. Nothing here is built yet.
 
 Home Base 0.1 works, but it only works for one vault. The note types, the statuses, the `app`
 property, the `## Work` and `## Steps` checklists and the daily log format are all written into
@@ -15,12 +15,12 @@ instead of a release.
 
 ## What Home Base is for
 
-The vault holds more than work: tasks and ops jobs, but also recipes, saved links, personal notes
+The vault holds more than work: tasks, but also recipes, saved links, personal notes
 and a wiki for the apps. Home Base shouldn't try to turn all of that into tasks, and it shouldn't
 ignore it either. It has two tiers.
 
-**It manages work and attention.** Anything with a status or a date that I act on: tasks, ops
-jobs, meetings (decisions and open questions), the daily log, quick fixes. For these, Home Base is
+**It manages work and attention.** Anything with a status or a date that I act on: tasks
+(including admin and recurring jobs), meetings (decisions and open questions), the daily log, quick fixes. For these, Home Base is
 the main way in. It shows what needs doing, what's due and what's waiting, and it changes them
 (status, due date, checkboxes, Mark done).
 
@@ -85,11 +85,12 @@ An item type is a kind of note. Each has:
 
 - `id` and `label`, for example `task` / "Task".
 - `kind`, which decides how the plugin treats it:
-  - `item`: a unit of work with a status. Shows on the board, in review, in upcoming. Tasks and
-    ops jobs are both `item`.
+  - `item`: a unit of work with a status. Shows on the board, in review, in upcoming.
   - `meeting`: a dated note with decisions, open questions and linked items.
   - `journal`: one note per day (the daily log).
-  - `checklist`: a note whose checkboxes are each a small to-do (Quick fixes).
+  - `checklist`: a note whose checkboxes are each a small to-do (Quick fixes). Today that means
+    notes marked `type: quick-list`; collecting unticked boxes from other notes as well is a
+    possible later option.
   - `collection`: notes with no workflow that Home Base only surfaces: recipes, links, notes, wiki
     pages. See "Collections" below.
 - `match`: how to recognise one. A property value (`type: task`), a folder (`Chores/`), or both.
@@ -100,10 +101,22 @@ An item type is a kind of note. Each has:
 - `fields` and `sections`: the role mappings below.
 - `icon` and `color`, for chips and the rail.
 
-Tasks and ops jobs stay separate types because they have different templates and fields
-(`repeat` and `last_done` only make sense on ops), but both are `kind: item`, so the board and
-review handle them the same way. A type can opt out of the board with `board: false`, which is how
-ops jobs keep their own screen.
+### Tasks and ops jobs are one type
+
+0.1 has two work types: tasks (a code change in an app repo, which becomes a GitHub issue and PR)
+and ops jobs (no code: sign a BAA, move DNS, rotate a key, some of them repeating). They behave the
+same way: both have a status, a due date and a checklist. So they become one `task` type:
+
+- **Repeating** is a task with a `repeat` value. Mark done on any task with `repeat` sets
+  `last_done` and moves `due` forward; without `repeat`, it closes the task.
+- **Code or not** is an optional `work` property: `work: ops` for jobs with no code change. A task
+  with no `work` is a code task. This is what Claude reads to know which tasks it can build.
+- All of them live in `Tasks/`. The Ops screen becomes a Home section and a rail entry that filter
+  `work: ops`, so it's configuration, not a special case: any saved filter can get a rail entry
+  with `rail: true`.
+
+A type can still opt out of the board with `board: false`, for types that aren't worked through
+statuses.
 
 ### Space
 
@@ -242,15 +255,19 @@ small object, so they validate cleanly and are easy to write by hand:
 
 ```yaml
 where:
-  type: ops              # item type id, or a list of ids
+  type: task             # item type id, or a list of ids
   meaning: [todo, doing] # workflow meanings
   status: blocked        # exact status values
   space: SpotDME
   due: { within: 7 }     # also: overdue, none, any, before/after a date
-  field: { area: pricing }
+  field: { work: ops }   # any property, exact value
 sort: due                # or created, title, status
 limit: 6
 ```
+
+A filter can be saved under `filters:` with an `id`, and then used by name: a Home section takes
+`filter: ops`, and a saved filter with `rail: true` gets its own entry in the rail (and under More
+on the phone). That's how the Ops screen works after ops jobs merge into tasks.
 
 Anything more complex belongs in a `.base` file; see "Bases" below.
 
@@ -259,8 +276,10 @@ Anything more complex belongs in a `.base` file; see "Bases" below.
 Capture reads its rules from the definition:
 
 - a space alias as the first word, or `@alias` anywhere, sets the space
-- an item type id or label as a word (`ops`, `chore`) sets the type; the default type is the first
+- an item type id or label as a word (`chore`) sets the type; the default type is the first
   `item` type
+- a flag word sets a property, as defined under `capture.flags`: in my vault `ops` sets
+  `work: ops`
 - `due <word>` sets the role mapped to `due`
 - the rest is the title
 
@@ -268,7 +287,8 @@ The phone sheet's chips (space, type, due) are built from the same lists.
 
 ## The workspace note
 
-The definition is a note in the vault, `Home Base.md` by default (the path is a plugin setting).
+The definition is a note in the vault, `System/Home Base.md` by default (the path is a plugin
+setting). `System/` is for notes that configure the vault rather than hold content.
 The definition itself is a fenced code block with the language `homebase`:
 
 ````markdown
@@ -329,20 +349,12 @@ types:
     template: Templates/Task.md
     fields:
       area: area
+      repeat: repeat
+      lastDone: last_done
       links:
         - { property: issue, label: Issue, url: "https://github.com/{owner}/{repo}/issues/{number}" }
         - { property: pr, label: PR, url: "https://github.com/{owner}/{repo}/pull/{number}" }
-    sections: { checklist: [Work], questions: [Open questions] }
-
-  - id: ops
-    label: Ops job
-    kind: item
-    board: false
-    match: { property: type, value: ops }
-    folder: Ops
-    template: Templates/Ops.md
-    fields: { repeat: repeat, lastDone: last_done }
-    sections: { checklist: [Steps] }
+    sections: { checklist: [Work, Steps], questions: [Open questions] }
 
   - id: meeting
     label: Meeting
@@ -385,7 +397,14 @@ types:
     kind: collection
     match: { folder: Apps, notType: [quick, hub] }
 
-ignore: [Templates]
+ignore: [Templates, System]
+
+capture:
+  flags:
+    ops: { work: ops }
+
+filters:
+  - { id: ops, label: Ops, icon: repeat, rail: true, where: { field: { work: ops } }, sort: due }
 
 pinned: []
 
@@ -393,7 +412,7 @@ home:
   - { kind: next }
   - { kind: list, title: Overdue and due this week, column: main, where: { due: { within: 7 } }, sort: due }
   - { kind: list, title: In progress and blocked, column: side, where: { meaning: [doing, waiting] } }
-  - { kind: list, title: Open ops, column: main, where: { type: ops }, sort: due, limit: 6 }
+  - { kind: list, title: Open ops, column: main, filter: ops, limit: 6 }
   - { kind: journal, column: side }
   - { kind: meetings, column: side, limit: 2 }
   - { kind: spaces, column: side }
@@ -409,11 +428,18 @@ shows as plain text.
 
 ### Relationship to the vault's CLAUDE.md
 
-Today the vault's CLAUDE.md is the schema, for people and Claude. After this change the workspace
-note is the machine-readable schema, and CLAUDE.md keeps the parts a plugin can't enforce: when to
-make a task versus a quick fix, note body layout, who moves statuses, naming. CLAUDE.md's property
-table would point at the workspace note for the list of values instead of repeating them. This is
-an open question below, because it changes how Claude sessions in the vault work.
+The vault's CLAUDE.md stays the source of truth for property names and allowed values, because
+Claude reads it at the start of every session in the vault. The workspace note is the plugin's
+machine-readable copy of the same schema. To keep the two from drifting:
+
+- CLAUDE.md says that changing a property or value there means changing `System/Home Base.md` in
+  the same commit, and the other way round.
+- The plugin checks the vault against its definition and lists mismatches in the settings tab:
+  notes whose `app` or `status` value isn't in the definition, and types it doesn't recognise. A
+  value added in CLAUDE.md but forgotten in the note shows up there the first time a note uses it.
+
+CLAUDE.md also keeps what a plugin can't enforce: when to make a task or a quick fix, note body
+layout, who moves statuses, naming.
 
 ## Code structure
 
@@ -461,11 +487,17 @@ so both layouts are checked by screenshot too.
 On first load of the new version:
 
 1. If the workspace note exists, use it.
-2. If not, write `Home Base.md` from the 0.1 settings (folders, apps, aliases, colors) plus the
+2. If not, write `System/Home Base.md` from the 0.1 settings (folders, apps, aliases, colors) plus the
    defaults above, show a notice saying so, and open the note once.
 3. Remove the old keys from the plugin settings, keeping only the note path and "open on startup".
 
-No task, ops, meeting or log note is changed by the upgrade.
+The plugin doesn't change any task, meeting or log note.
+
+Merging ops jobs into tasks is a vault change, done once by Claude in `tyoung560/obsidian` when
+this version is released: move the `Ops/` notes into `Tasks/`, change `type: ops` to `type: task`
+with `work: ops`, update the Ops template, the Templater scripts, `Tasks.base` and CLAUDE.md. The
+0.1 plugin still treats `type: ops` specially, so this has to land with the new plugin version, not
+before.
 
 ## Polish and workflow (the pass after the schema)
 
@@ -502,7 +534,8 @@ review and the phone tab bar are what make it feel like an app, and Bases views 
 
 1. **Definition and model.** Workspace schema, validation, the note and its loader, the migration,
    roles and meanings throughout the existing screens, the split of `view.ts`, the household test
-   definition. The UI looks the same; everything underneath reads the definition.
+   definition, ops merged into tasks (plugin and vault together). The UI looks the same apart from
+   Ops becoming a saved filter; everything underneath reads the definition.
 2. **Home sections and capture from the definition.** Home built from `home:`, filters, capture
    rules from types and spaces, the reading-view renderer for the block.
 3. **Library.** Collections, the Library screen, `recent` and `pinned` on Home, `.base` sources.
@@ -513,27 +546,29 @@ review and the phone tab bar are what make it feel like an app, and Bases views 
 
 Each phase ships as its own release.
 
+## Decisions
+
+Settled in review on 2026-11-10:
+
+1. **Source of truth for values:** the vault's CLAUDE.md. The workspace note mirrors it, CLAUDE.md
+   tells Claude to change both together, and the plugin lists mismatches (see "Relationship to the
+   vault's CLAUDE.md").
+2. **Workspace note location:** `System/Home Base.md`.
+3. **Ops jobs:** merged into the task type, with `work: ops` and an optional `repeat` (see "Tasks
+   and ops jobs are one type").
+4. **Quick fixes:** stay a `checklist` kind with their own screen, for now.
+5. **Statuses:** one workflow for every `item` type, until a real need for two appears.
+6. **Personal notes:** `Personal/` splits into subfolders by kind as it grows.
+7. **The vault's CLAUDE.md:** says the vault also holds recipes, links, personal notes and app
+   wiki pages, which Claude keeps as notes and doesn't sort into tasks. Done in
+   `tyoung560/obsidian` alongside this review.
+
 ## Open questions
 
-1. **CLAUDE.md or the workspace note as the source of truth for property values.** I'd make the
-   note the source and have CLAUDE.md point to it, so the two can't drift. The cost is that Claude
-   sessions in the vault have to read one more note to know the allowed values.
-2. **Note name and place.** `Home Base.md` at the vault root is easy to find. A `System/` or
-   `Settings/` folder would keep the root tidy if more config notes appear later.
-3. **Ops as its own screen.** With types configurable, "Ops" could become a Home section and a rail
-   entry generated from any type marked `screen: true`, instead of a special case. I'd do that,
-   which means a new type (say `chore`) could get its own screen with one line.
-4. **Quick fixes.** They're the one place where a checkbox, not a note, is the unit of work. Keep
-   them as a `checklist` kind, or let a quick fix be promoted to a task from the sheet (creating
-   the task note and ticking the line)? Promotion seems useful either way.
-5. **Statuses per type.** One workflow for all `item` types keeps things simple. Ops jobs don't
-   really use `blocked` or `in-progress`, but sharing the list costs nothing visible. I'd keep one
-   workflow until a real need for two appears.
-6. **Where the second tier lives in the vault.** The schema says folders are tables, one kind of
-   note each. Recipes, links and wiki pages fit that (`Recipes/`, `Clippings/`, a wiki folder per
-   app under `Apps/`). Personal notes are looser. Should `Personal/` stay one folder of mixed
-   notes, or split by kind (`Personal/Homelab/`, `Personal/Hockey/`) as it grows? Collections work
-   either way; this is about keeping the vault browsable without the plugin.
-7. **The vault's CLAUDE.md is about the apps.** It describes the vault as a development knowledge
-   base. With recipes, links and personal notes in scope, its opening and layout sections need to
-   say so, so Claude sessions don't treat a recipe as legacy input to sort into tasks.
+1. **Quick fixes from anywhere.** Should the Quick fixes screen also collect unticked checkboxes
+   from other notes (for example a task's checklist, or a line in the inbox), or only from
+   `quick-list` notes as now?
+2. **Promoting a quick fix.** Turning one checkbox into a task from its row (creating the note and
+   ticking or linking the line) would bridge the two. Worth adding in the polish phase?
+3. **The `work` property name and values.** `work: ops` reads naturally next to the old type. An
+   alternative is `kind: admin` or a `code: false` flag. Any preference before notes are migrated?
