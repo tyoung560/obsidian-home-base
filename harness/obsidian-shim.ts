@@ -1,4 +1,7 @@
 /* A small stand-in for the parts of Obsidian's API that Home Base uses. Dev harness only. */
+import { parse as yamlParse } from "yaml";
+export function parseYaml(text: string): unknown { return yamlParse(text); }
+export function stringifyYaml(v: unknown): string { return JSON.stringify(v); }
 type Cb = (...a: unknown[]) => unknown;
 
 declare global {

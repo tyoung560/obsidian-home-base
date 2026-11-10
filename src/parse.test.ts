@@ -1,35 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
-  appendToLog, checklistIn, bulletsIn, daysUntil, linkTargets, logNoteText, nextDue, normalizeDate,
-  parseCapture, parseRepeat, resetChecklist, resolveDueWord, sectionHasContent, setCheckbox, summaryOf, taskNoteText,
+  appendLine, checklistIn, bulletsIn, daysUntil, defaultNoteText, fillTemplate, linkTargets, nextDue, normalizeDate,
+  parseRepeat, resetChecklist, resolveDueWord, sectionHasContent, setCheckbox, summaryOf,
 } from "./parse";
-import type { AppDef } from "./schema";
 
-const APPS: AppDef[] = [
-  { name: "SpotDME", short: "SpotDME", aliases: ["spot"], color: "" },
-  { name: "Global Distributors", short: "GD", aliases: ["gd"], color: "" },
-  { name: "Sylo", short: "Sylo", aliases: [], color: "" },
-  { name: "General", short: "Personal", aliases: ["me", "personal"], color: "" },
-];
 const MON = new Date(2026, 10, 9); // Monday 9 Nov 2026
-
-describe("parseCapture", () => {
-  it("reads app, due day and title", () => {
-    expect(parseCapture("gd vendor remittance email due fri", APPS, MON)).toEqual({ title: "Vendor remittance email", app: "Global Distributors", type: "task", due: "2026-11-13" });
-  });
-  it("takes @alias anywhere and ops as the second word", () => {
-    expect(parseCapture("spot ops sign the BAAs", APPS, MON)).toMatchObject({ app: "SpotDME", type: "ops", title: "Sign the BAAs" });
-    expect(parseCapture("rotate keys @me due 2026-12-01", APPS, MON)).toMatchObject({ app: "General", due: "2026-12-01", title: "Rotate keys" });
-  });
-  it("leaves words that only look like keywords", () => {
-    expect(parseCapture("fix the gd export due", APPS, MON)).toMatchObject({ app: null, title: "Fix the gd export due", due: "" });
-    expect(parseCapture("review ops dashboard", APPS, MON)).toMatchObject({ type: "task", title: "Review ops dashboard" });
-  });
-  it("understands due next week and tomorrow", () => {
-    expect(parseCapture("sylo call due next week", APPS, MON).due).toBe("2026-11-16");
-    expect(parseCapture("sylo call due tomorrow", APPS, MON).due).toBe("2026-11-10");
-  });
-});
 
 describe("dates", () => {
   it("rolls a weekday to the next one, never today", () => {
@@ -97,22 +72,26 @@ describe("note bodies", () => {
   });
 });
 
-describe("templates and logs", () => {
-  it("writes task and ops notes in the vault's format", () => {
-    const t = taskNoteText({ title: "Fix login", app: "SpotDME", type: "task", due: "" }, "2026-11-09");
-    expect(t).toContain("type: task\napp: SpotDME\nstatus: inbox");
-    expect(t).not.toContain("due:");
-    expect(taskNoteText({ title: "Renew", app: "General", type: "ops", due: "2026-12-01" }, "2026-11-09")).toContain("due: 2026-12-01\nrepeat:");
+describe("templates and journals", () => {
+  it("fills core-template placeholders and leaves unknown ones", () => {
+    expect(fillTemplate("created: {{date:YYYY-MM-DD}}\n# {{title}}\n{{weather}}", { title: "Fix login" }, MON)).toBe("created: 2026-11-09\n# Fix login\n{{weather}}");
   });
-  it("appends to log sections, replacing an empty template bullet", () => {
-    let log = logNoteText("2026-11-09");
-    log = appendToLog(log, "did", "Shipped the board");
-    log = appendToLog(log, "did", "Fixed sync");
-    log = appendToLog(log, "next", "Call Ben");
+  it("writes a note with no template from its properties", () => {
+    expect(defaultNoteText({ type: "task", app: "Global Distributors", status: "inbox" }, "Fix login", "work")).toBe(
+      "---\ntype: task\napp: Global Distributors\nstatus: inbox\n---\n# Fix login\n\n## Work\n- [ ] \n");
+  });
+  it("appends to sections, replacing an empty template bullet and creating a missing section", () => {
+    const tpl = "# 2026-11-09\n\n## Did\n- \n\n## Notes\n- \n\n## Next\n- [ ] \n";
+    let log = appendLine(tpl, "did", "bullets", "Shipped the board");
+    log = appendLine(log, "Did", "bullets", "Fixed sync");
+    log = appendLine(log, "next", "checklist", "Call Ben");
     expect(bulletsIn(log, ["did"])).toEqual(["Shipped the board", "Fixed sync"]);
     expect(checklistIn(log, ["next"]).map((c) => c.text)).toEqual(["Call Ben"]);
-    const tpl = "# 2026-11-09\n\n## Did\n- \n\n## Notes\n- \n\n## Next\n- [ ] \n";
-    expect(appendToLog(tpl, "next", "Write docs")).toContain("## Next\n- [ ] Write docs\n");
+    expect(appendLine("# Day\n", "wins", "bullets", "Ran 5k")).toBe("# Day\n\n## Wins\n- Ran 5k\n");
+  });
+  it("keeps markdown in raw bullets so links can be read", () => {
+    expect(bulletsIn("## Items\n- [[Fix login]] (01:19)\n", ["items"], true)).toEqual(["[[Fix login]] (01:19)"]);
+    expect(bulletsIn("## Items\n- [[Fix login]] (01:19)\n", ["items"])).toEqual(["Fix login (01:19)"]);
   });
 });
 
