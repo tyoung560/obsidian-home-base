@@ -1,6 +1,8 @@
 # Home Base design: a configurable workspace
 
-Status: approved 2026-11-10, no open questions. Decisions are listed at the end. Nothing here is built yet.
+Status: approved 2026-11-10. Phase 1 is built in 0.2.0, together with phase 2's Home sections and
+capture rules; the reading-view renderer for the block, the Library, polish, the settings editor
+and Bases views are still to come. Decisions are listed at the end.
 
 Home Base 0.1 works, but it only works for one vault. The note types, the statuses, the `app`
 property, the `## Work` and `## Steps` checklists and the daily log format are all written into

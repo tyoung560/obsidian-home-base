@@ -2,7 +2,12 @@
  * Pure functions: dates, quick-capture parsing, repeat intervals, note bodies and templates.
  * Nothing here touches Obsidian, so it is all covered by unit tests.
  */
-import type { AppDef, ChecklistItem, LogSection } from "./schema";
+export interface ChecklistItem {
+  text: string;
+  done: boolean;
+  /** Zero-based line number in the file, used to toggle the box. */
+  line: number;
+}
 
 /* ---------- dates (local, YYYY-MM-DD) ---------- */
 
@@ -57,64 +62,6 @@ export function resolveDueWord(word: string, today: Date): string | null {
     return isoDate(addDays(today, add));
   }
   return null;
-}
-
-/* ---------- quick capture ---------- */
-
-export interface Capture {
-  title: string;
-  app: string | null;
-  type: "task" | "ops";
-  due: string;
-}
-
-/**
- * Parses quick-capture text such as "gd vendor remittance email due fri".
- * - an app alias as the first word, or anywhere as @alias, picks the app
- * - the word "ops" (or #ops) makes it an ops job
- * - "due <word>" sets the due date; "due next week" works too
- */
-export function parseCapture(text: string, apps: AppDef[], today: Date): Capture {
-  const words = text.trim().split(/\s+/).filter(Boolean);
-  const byAlias = new Map<string, string>();
-  for (const a of apps) for (const al of [...a.aliases, a.name, a.short]) byAlias.set(al.toLowerCase(), a.name);
-
-  let app: string | null = null;
-  let type: "task" | "ops" = "task";
-  let due = "";
-  const rest: string[] = [];
-
-  for (let i = 0; i < words.length; i++) {
-    const raw = words[i] as string;
-    const lower = raw.toLowerCase();
-    const tagged = lower.startsWith("@");
-    const key = lower.replace(/^[@#]/, "");
-    if (!app && (i === 0 || tagged) && byAlias.has(key)) {
-      app = byAlias.get(key) ?? null;
-      continue;
-    }
-    if (key === "ops" && (lower.startsWith("#") || i === 0 || (i === 1 && app))) {
-      type = "ops";
-      continue;
-    }
-    if (lower === "due" && i + 1 < words.length) {
-      const next = (words[i + 1] as string).toLowerCase();
-      if (next === "next" && words[i + 2]?.toLowerCase() === "week") {
-        due = isoDate(addDays(today, 7));
-        i += 2;
-        continue;
-      }
-      const d = resolveDueWord(next, today);
-      if (d) {
-        due = d;
-        i += 1;
-        continue;
-      }
-    }
-    rest.push(raw);
-  }
-  const title = rest.join(" ");
-  return { title: title.charAt(0).toUpperCase() + title.slice(1), app, type, due };
 }
 
 /** Strips characters that can't appear in a file name. */
@@ -207,8 +154,8 @@ export function checklistIn(text: string, names: string[]): ChecklistItem[] {
   return out;
 }
 
-/** Top-level plain bullets inside the named section. */
-export function bulletsIn(text: string, names: string[]): string[] {
+/** Top-level plain bullets inside the named section. `raw` keeps markdown, for reading links. */
+export function bulletsIn(text: string, names: string[], raw = false): string[] {
   const { lines, sections: secs } = sections(text);
   const s = findSection(secs, names);
   if (!s) return [];
@@ -217,7 +164,7 @@ export function bulletsIn(text: string, names: string[]): string[] {
     const line = lines[i] as string;
     if (/^\s/.test(line)) continue;
     const m = BULLET.exec(line);
-    if (m && (m[1] as string).trim()) out.push(plain((m[1] as string).trim()));
+    if (m && (m[1] as string).trim()) out.push(raw ? (m[1] as string).trim() : plain((m[1] as string).trim()));
   }
   return out;
 }
@@ -311,44 +258,47 @@ export function linkTargets(values: unknown): string[] {
 
 /* ---------- templates ---------- */
 
-export function taskNoteText(c: { title: string; app: string; type: "task" | "ops"; due: string }, created: string): string {
-  if (c.type === "ops") {
-    return [
-      "---", "type: ops", `app: ${c.app}`, "status: inbox", `due: ${c.due}`, "repeat:", "last_done:", "source: []", `created: ${created}`, "---",
-      `# ${c.title}`, "", "What it is, where it lives (service, dashboard, env var name), and who depends on it.", "Never paste the secret itself.", "",
-      "## Steps", "- [ ] ", "", "## After", "- [ ] set `last_done` to today and move `due` forward by `repeat`", "",
-    ].join("\n");
-  }
-  return [
-    "---", "type: task", `app: ${c.app}`, "status: inbox", "area:", "source: []", `created: ${created}`, ...(c.due ? [`due: ${c.due}`] : []), "---",
-    `# ${c.title}`, "", "What changes and why.", "", "## Work", "- [ ] ", "",
-  ].join("\n");
+/** Fills {{title}}, {{date}}, {{date:YYYY-MM-DD}} and any {{key}} in vars. Unknown keys are left alone. */
+export function fillTemplate(template: string, vars: Record<string, string>, today: Date): string {
+  return template.replace(/\{\{\s*([\w-]+)(?::([^}]*))?\s*\}\}/g, (whole, key: string, fmt?: string) => {
+    if (key === "date") return fmt ? formatDate(today, fmt.trim()) : isoDate(today);
+    return key in vars ? (vars[key] as string) : whole;
+  });
 }
 
-export function logNoteText(date: string): string {
-  return ["---", "type: log", "app: General", `created: ${date}`, "---", `# ${date}`, "", "## Did", "", "## Notes", "", "## Next", ""].join("\n");
+function formatDate(d: Date, fmt: string): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return fmt.replace(/YYYY|MM|DD/g, (t) => (t === "YYYY" ? String(d.getFullYear()) : t === "MM" ? pad(d.getMonth() + 1) : pad(d.getDate())));
 }
 
-const LOG_HEADINGS: Record<LogSection, string> = { did: "did", notes: "notes", next: "next" };
+/** A new note when the type has no template: its properties, a title, and the checklist heading. */
+export function defaultNoteText(props: Record<string, string>, title: string, checklistHeading: string | null): string {
+  const fm = Object.entries(props).map(([k, v]) => `${k}: ${/[:#\[\]{}]|^\s|\s$/.test(v) ? JSON.stringify(v) : v}`);
+  const body = checklistHeading ? ["", `## ${capitalize(checklistHeading)}`, "- [ ] "] : [];
+  return ["---", ...fm, "---", `# ${title}`, ...body, ""].join("\n");
+}
 
-/** Inserts a line at the end of a daily log section, creating the section if it is missing. */
-export function appendToLog(text: string, section: LogSection, value: string): string {
-  const line = section === "next" ? `- [ ] ${value}` : `- ${value}`;
+export function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/** Inserts a line at the end of a section, creating the section if it is missing. */
+export function appendLine(text: string, heading: string, kind: "bullets" | "checklist", value: string): string {
+  const line = kind === "checklist" ? `- [ ] ${value}` : `- ${value}`;
   const { lines, sections: secs } = sections(text);
-  const s = findSection(secs, [LOG_HEADINGS[section]]);
+  const s = findSection(secs, [heading.toLowerCase()]);
   if (!s) {
     const base = text.endsWith("\n") ? text : `${text}\n`;
-    return `${base}\n## ${section === "did" ? "Did" : section === "notes" ? "Notes" : "Next"}\n${line}\n`;
+    return `${base}\n## ${capitalize(heading)}\n${line}\n`;
   }
   let at = s.start + 1;
   for (let i = s.start + 1; i < s.end; i++) {
     const l = (lines[i] as string).trim();
-    if (l && !/^[-*+]\s+(\[\s?\]\s*)?$/.test(l)) at = i + 1;
-    else if (/^[-*+]\s+(\[\s?\]\s*)?$/.test(l)) {
-      // an empty template bullet such as "- " or "- [ ] ": replace it
+    if (/^[-*+]\s*(\[\s?\]\s*)?$/.test(l)) {
       lines[i] = line;
       return lines.join("\n");
     }
+    if (l) at = i + 1;
   }
   lines.splice(at, 0, line);
   return lines.join("\n");

@@ -29,6 +29,11 @@
 .hb-pad { padding: 0 14px 12px; }
 .hb-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; display: inline-block; background: var(--hb-app, var(--text-faint)); }
 .hb-error { padding: 24px; max-width: 560px; }
+.hb-banner { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; padding: 10px 14px; border-radius: var(--hb-radius); background: var(--hb-late-soft); color: var(--text-normal); font-size: var(--font-ui-small); }
+.hb-root .hb-more-row { width: 100%; border: 0; border-top: 1px solid var(--background-modifier-border); border-radius: 0; box-shadow: none; background: none; height: auto; padding: 8px 14px; color: var(--text-accent); font-size: var(--font-ui-small); text-align: left; justify-content: flex-start; }
+.hb-capture-preview.is-hint { visibility: hidden; }
+.hb-capture:focus-within .hb-capture-preview.is-hint { visibility: visible; }
+.hb-pickers { display: flex; flex-direction: column; gap: 8px; }
 .hb-error h3 { margin-top: 0; }
 .hb-empty { padding: 14px; color: var(--text-faint); font-size: var(--font-ui-small); }
 .hb-note { font-size: var(--font-ui-small); color: var(--text-muted); border: 1px dashed var(--background-modifier-border); border-radius: var(--hb-radius); padding: 8px 12px; }
@@ -129,7 +134,7 @@
 .hb-root .hb-seg button { background: none; border: 0; box-shadow: none; padding: 4px 10px; height: auto; border-radius: calc(var(--hb-radius) - 2px); font-size: var(--font-ui-small); color: var(--text-muted); }
 .hb-root .hb-seg button.is-active { background: var(--background-primary); color: var(--text-normal); }
 .hb-board-wrap { overflow-x: auto; padding-bottom: 6px; }
-.hb-board { display: grid; grid-template-columns: repeat(5, minmax(220px, 1fr)); gap: 12px; min-width: 1150px; align-items: start; }
+.hb-board { --hb-cols: 5; display: grid; grid-template-columns: repeat(var(--hb-cols), minmax(220px, 1fr)); gap: 12px; min-width: calc(var(--hb-cols) * 232px); align-items: start; }
 .hb-column { background: var(--background-secondary); border: 1px solid var(--background-modifier-border); border-radius: var(--hb-radius-l); display: flex; flex-direction: column; min-height: 180px; }
 .hb-column.is-over { border-color: var(--interactive-accent); background: var(--hb-accent-soft); }
 .hb-column-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px 2px; font-weight: var(--font-semibold, 600); font-size: var(--font-ui-small); }
