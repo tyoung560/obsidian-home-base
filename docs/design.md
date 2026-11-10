@@ -88,9 +88,8 @@ An item type is a kind of note. Each has:
   - `item`: a unit of work with a status. Shows on the board, in review, in upcoming.
   - `meeting`: a dated note with decisions, open questions and linked items.
   - `journal`: one note per day (the daily log).
-  - `checklist`: a note whose checkboxes are each a small to-do (Quick fixes). Today that means
-    notes marked `type: quick-list`; collecting unticked boxes from other notes as well is a
-    possible later option.
+  - `checklist`: a note whose checkboxes are each a small to-do (Quick fixes). The Quick fixes
+    screen collects the checkboxes from every note of this type, across all spaces.
   - `collection`: notes with no workflow that Home Base only surfaces: recipes, links, notes, wiki
     pages. See "Collections" below.
 - `match`: how to recognise one. A property value (`type: task`), a folder (`Chores/`), or both.
@@ -428,18 +427,22 @@ shows as plain text.
 
 ### Relationship to the vault's CLAUDE.md
 
-The vault's CLAUDE.md stays the source of truth for property names and allowed values, because
-Claude reads it at the start of every session in the vault. The workspace note is the plugin's
-machine-readable copy of the same schema. To keep the two from drifting:
+The workspace note is the source of truth for the schema: note types, the space property and its
+values, statuses, and which properties and headings hold what. The vault's CLAUDE.md stops listing
+those values and says where they are: "The allowed values for `type`, `app` and `status`, and the
+properties each note type uses, are defined in `System/Home Base.md`. Read it before creating or
+editing a task, and change it there when a value is added or renamed." Values then live in one
+place and can't drift.
 
-- CLAUDE.md says that changing a property or value there means changing `System/Home Base.md` in
-  the same commit, and the other way round.
-- The plugin checks the vault against its definition and lists mismatches in the settings tab:
-  notes whose `app` or `status` value isn't in the definition, and types it doesn't recognise. A
-  value added in CLAUDE.md but forgotten in the note shows up there the first time a note uses it.
+CLAUDE.md keeps everything a plugin can't enforce: when to make a task or a quick fix, the note
+body layout, who moves statuses (only I move `inbox` to `ready`), naming, linking, sync.
 
-CLAUDE.md also keeps what a plugin can't enforce: when to make a task or a quick fix, note body
-layout, who moves statuses, naming.
+The plugin still checks the vault against the definition and lists mismatches in the settings tab:
+notes whose `app` or `status` value isn't defined, and `type` values it doesn't recognise. That
+catches a note written with a value nobody added to the definition.
+
+The CLAUDE.md change lands in phase 1 with the workspace note, since the note doesn't exist until
+then.
 
 ## Code structure
 
@@ -550,13 +553,14 @@ Each phase ships as its own release.
 
 Settled in review on 2026-11-10:
 
-1. **Source of truth for values:** the vault's CLAUDE.md. The workspace note mirrors it, CLAUDE.md
-   tells Claude to change both together, and the plugin lists mismatches (see "Relationship to the
-   vault's CLAUDE.md").
+1. **Source of truth for values:** the workspace note. CLAUDE.md stops listing types, apps and
+   statuses and points to `System/Home Base.md` instead (see "Relationship to the vault's
+   CLAUDE.md").
 2. **Workspace note location:** `System/Home Base.md`.
 3. **Ops jobs:** merged into the task type, with `work: ops` and an optional `repeat` (see "Tasks
    and ops jobs are one type").
-4. **Quick fixes:** stay a `checklist` kind with their own screen, for now.
+4. **Quick fixes:** stay a `checklist` kind with their own screen, collecting the checkboxes from
+   every `quick-list` note and nowhere else.
 5. **Statuses:** one workflow for every `item` type, until a real need for two appears.
 6. **Personal notes:** `Personal/` splits into subfolders by kind as it grows.
 7. **The vault's CLAUDE.md:** says the vault also holds recipes, links, personal notes and app
@@ -565,10 +569,7 @@ Settled in review on 2026-11-10:
 
 ## Open questions
 
-1. **Quick fixes from anywhere.** Should the Quick fixes screen also collect unticked checkboxes
-   from other notes (for example a task's checklist, or a line in the inbox), or only from
-   `quick-list` notes as now?
-2. **Promoting a quick fix.** Turning one checkbox into a task from its row (creating the note and
+1. **Promoting a quick fix.** Turning one checkbox into a task from its row (creating the note and
    ticking or linking the line) would bridge the two. Worth adding in the polish phase?
-3. **The `work` property name and values.** `work: ops` reads naturally next to the old type. An
+2. **The `work` property name and values.** `work: ops` reads naturally next to the old type. An
    alternative is `kind: admin` or a `code: false` flag. Any preference before notes are migrated?
