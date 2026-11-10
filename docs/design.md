@@ -108,11 +108,14 @@ same way: both have a status, a due date and a checklist. So they become one `ta
 
 - **Repeating** is a task with a `repeat` value. Mark done on any task with `repeat` sets
   `last_done` and moves `due` forward; without `repeat`, it closes the task.
-- **Code or not** is an optional `work` property: `work: ops` for jobs with no code change. A task
-  with no `work` is a code task. This is what Claude reads to know which tasks it can build.
-- All of them live in `Tasks/`. The Ops screen becomes a Home section and a rail entry that filter
-  `work: ops`, so it's configuration, not a special case: any saved filter can get a rail entry
-  with `rail: true`.
+- **What kind of work it is** isn't the plugin's business. Whether a task needs code, is an errand
+  or is a chore is a judgement about one vault, and building it into the plugin is the kind of
+  special case this design removes. In my vault, Claude decides whether it can build a task from
+  the note and its app, following the vault's CLAUDE.md. Anyone who wants that split can use
+  `area` or any other property and a saved filter.
+- All of them live in `Tasks/`. The Ops screen becomes a saved "Recurring" filter (tasks with a
+  `repeat`) shown in the rail. That's configuration, not a special case: any saved filter can get
+  a rail entry with `rail: true`.
 
 A type can still opt out of the board with `board: false`, for types that aren't worked through
 statuses.
@@ -238,7 +241,7 @@ Home is an ordered list of sections. Each section has a `kind` and options:
 
 - `next`: the one most useful action: something overdue, then review, then "nothing needs you"
 - `list`: a filtered, sorted list of items with a title, for example "Due this week" or
-  "Open ops"
+  "Recurring"
 - `journal`: today's journal, with its checklist section and an add box
 - `meetings`: recent meetings
 - `spaces`: a summary per space, counting by meaning
@@ -259,14 +262,15 @@ where:
   status: blocked        # exact status values
   space: SpotDME
   due: { within: 7 }     # also: overdue, none, any, before/after a date
-  field: { work: ops }   # any property, exact value
+  field: { area: pricing } # any property, exact value
+  has: repeat            # the property is set, whatever its value
 sort: due                # or created, title, status
 limit: 6
 ```
 
 A filter can be saved under `filters:` with an `id`, and then used by name: a Home section takes
-`filter: ops`, and a saved filter with `rail: true` gets its own entry in the rail (and under More
-on the phone). That's how the Ops screen works after ops jobs merge into tasks.
+`filter: recurring`, and a saved filter with `rail: true` gets its own entry in the rail (and under
+More on the phone). That's how the Ops screen works after ops jobs merge into tasks.
 
 Anything more complex belongs in a `.base` file; see "Bases" below.
 
@@ -277,8 +281,8 @@ Capture reads its rules from the definition:
 - a space alias as the first word, or `@alias` anywhere, sets the space
 - an item type id or label as a word (`chore`) sets the type; the default type is the first
   `item` type
-- a flag word sets a property, as defined under `capture.flags`: in my vault `ops` sets
-  `work: ops`
+- a flag word sets a property, as defined under `capture.flags`, for example `urgent` setting
+  `priority: high` in a vault that has one. My vault defines none.
 - `due <word>` sets the role mapped to `due`
 - the rest is the title
 
@@ -398,12 +402,8 @@ types:
 
 ignore: [Templates, System]
 
-capture:
-  flags:
-    ops: { work: ops }
-
 filters:
-  - { id: ops, label: Ops, icon: repeat, rail: true, where: { field: { work: ops } }, sort: due }
+  - { id: recurring, label: Recurring, icon: repeat, rail: true, where: { has: repeat }, sort: due }
 
 pinned: []
 
@@ -411,7 +411,7 @@ home:
   - { kind: next }
   - { kind: list, title: Overdue and due this week, column: main, where: { due: { within: 7 } }, sort: due }
   - { kind: list, title: In progress and blocked, column: side, where: { meaning: [doing, waiting] } }
-  - { kind: list, title: Open ops, column: main, filter: ops, limit: 6 }
+  - { kind: list, title: Recurring, column: main, filter: recurring, limit: 6 }
   - { kind: journal, column: side }
   - { kind: meetings, column: side, limit: 2 }
   - { kind: spaces, column: side }
@@ -498,7 +498,8 @@ The plugin doesn't change any task, meeting or log note.
 
 Merging ops jobs into tasks is a vault change, done once by Claude in `tyoung560/obsidian` when
 this version is released: move the `Ops/` notes into `Tasks/`, change `type: ops` to `type: task`
-with `work: ops`, update the Ops template, the Templater scripts, `Tasks.base` and CLAUDE.md. The
+(keeping `repeat` and `last_done` where they're set), fold the Ops template into the Task template,
+and update the Templater scripts, `Tasks.base`, `Home.md` and CLAUDE.md. The
 0.1 plugin still treats `type: ops` specially, so this has to land with the new plugin version, not
 before.
 
@@ -557,8 +558,8 @@ Settled in review on 2026-11-10:
    statuses and points to `System/Home Base.md` instead (see "Relationship to the vault's
    CLAUDE.md").
 2. **Workspace note location:** `System/Home Base.md`.
-3. **Ops jobs:** merged into the task type, with `work: ops` and an optional `repeat` (see "Tasks
-   and ops jobs are one type").
+3. **Ops jobs:** merged into the task type. A task can have a `repeat`; nothing records what kind
+   of work it is (see "Tasks and ops jobs are one type").
 4. **Quick fixes:** stay a `checklist` kind with their own screen, collecting the checkboxes from
    every `quick-list` note and nowhere else.
 5. **Statuses:** one workflow for every `item` type, until a real need for two appears.
@@ -571,5 +572,3 @@ Settled in review on 2026-11-10:
 
 1. **Promoting a quick fix.** Turning one checkbox into a task from its row (creating the note and
    ticking or linking the line) would bridge the two. Worth adding in the polish phase?
-2. **The `work` property name and values.** `work: ops` reads naturally next to the old type. An
-   alternative is `kind: admin` or a `code: false` flag. Any preference before notes are migrated?
